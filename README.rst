@@ -1,3 +1,15 @@
+
+:: 
+
+  git clone https://github.com/WillyChap/CESM.git CESM_forpy_0XXX
+  cd CESM_forpy_0XXX
+  git checkout forpy_cesm
+  rm -r manage_externals
+  git clone -b manic-v1.1.8 https://github.com/ESMCI/manage_externals.git
+  ./manage_externals/checkout_externals
+  cd  ./components/cam
+  ../../manage_externals/checkout_externals -e Externals_CAM.cfg
+
 ==================================
  The Community Earth System Model
 ==================================
