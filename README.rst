@@ -1,4 +1,8 @@
 
+
+==================================
+      Quick Start Forpy + CESM:
+==================================
 :: 
 
   git clone https://github.com/WillyChap/CESM.git CESM_forpy_0XXX
@@ -9,6 +13,14 @@
   ./manage_externals/checkout_externals
   cd  ./components/cam
   ../../manage_externals/checkout_externals -e Externals_CAM.cfg
+
+:: 
+
+  ./CESM_forpy_0XXX/cime/scripts/create_newcase --case /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp00XXX --mach derecho --compset FHIST --res f09_f09_mg17 --project XXXXXX
+  cd /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp0014
+  ./case.setup
+  qcmd -q main -l walltime=01:00:00 -A NAML0001 -- ./case.build --skip-provenance-check
+  
 
 ==================================
  The Community Earth System Model
