@@ -5,6 +5,7 @@
 ==================================
 :: 
 
+  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/glade/work/wchapman/miniconda3.1/envs/cesmTORCH/lib/
   git clone https://github.com/WillyChap/CESM.git CESM_forpy_0XXX
   cd CESM_forpy_0XXX
   git checkout forpy_cesm
