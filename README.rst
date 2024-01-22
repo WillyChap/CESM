@@ -5,10 +5,12 @@
 ==================================
 :: 
 
-  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/glade/work/wchapman/miniconda3.1/envs/cesmTORCH/lib/
-  git clone https://github.com/WillyChap/CESM.git CESM_forpy_0XXX
-  cd CESM_forpy_0XXX
-  git checkout forpy_cesm
+  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/glade/work/wchapman/miniconda3.2/envs/cesmTORCH/lib/
+  
+
+  git clone https://github.com/WillyChap/CESM.git CESM_ftorch_0XXX
+  cd CESM_ftorch_0XXX
+  git checkout ftorch_cesm
   rm -r manage_externals
   git clone -b manic-v1.1.8 https://github.com/ESMCI/manage_externals.git
   ./manage_externals/checkout_externals
@@ -17,7 +19,7 @@
 
 :: 
 
-  ./CESM_forpy_0XXX/cime/scripts/create_newcase --case /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp00XXX --mach derecho --compset FHIST --res f09_f09_mg17 --project XXXXXX
+  ./CESM_ftorh_0XXX/cime/scripts/create_newcase --case /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp00XXX --mach derecho --compset FHIST --res f09_f09_mg17 --project XXXXXX
   cd /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp0014
   ./case.setup
   qcmd -q main -l walltime=01:00:00 -A NAML0001 -- ./case.build --skip-provenance-check
