@@ -1,11 +1,36 @@
-
-
 ==================================
       Quick Start Forpy + CESM:
 ==================================
-:: 
 
-  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/glade/work/wchapman/miniconda3.1/envs/cesmTORCH/lib/
+I don't know why but I had to purge my .bashrc to get forpy to work with CESM. Here is the totality of my new .bashrc
+::
+ function ncar_pylib { . /glade/u/apps/opt/ncar_pylib/ncar_pylib; }
+ export PROJECT=P93300606
+ export PBS_ACCOUNT=$PROJECT
+ export EDITOR="emacs -nw"
+ export PATH=$PATH:$HOME/bin
+ if [[ "$NCAR_HOST" == derecho ]]; then
+   if [[ -z $PBS_JOBID ]]; then
+     module purge
+     module load cesmdev/1.0
+ #    module load ncarenv/23.06
+     module load ncarenv/23.09
+   fi
+   export CESMDATAROOT="${CESMDATAROOT:=/glade/campaign/cesm/cesmdata}"
+   if [ -f "/glade/u/apps/cseg/derecho/$NCAR_ENV_VERSION/spack/share/spack/setup-env.sh" ]; then
+       SPACK_SKIP_MODULES=1 source /glade/u/apps/cseg/derecho/$NCAR_ENV_VERSION/spack/share/spack/setup-env.sh
+   fi
+ fi
+ alias qstat='qstat -w'
+
+Then set up your conda environment and clone the github:
+
+::
+
+  module load conda
+  conda activate /glade/work/wchapman/miniconda3.2/envs/cesmML3.8/
+
+
   git clone https://github.com/WillyChap/CESM.git CESM_forpy_0XXX
   cd CESM_forpy_0XXX
   git checkout forpy_cesm
@@ -15,13 +40,15 @@
   cd  ./components/cam
   ../../manage_externals/checkout_externals -e Externals_CAM.cfg
 
-:: 
+::
 
   ./CESM_forpy_0XXX/cime/scripts/create_newcase --case /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp00XXX --mach derecho --compset FHIST --res f09_f09_mg17 --project XXXXXX
   cd /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp0014
   ./case.setup
   qcmd -q main -l walltime=01:00:00 -A NAML0001 -- ./case.build --skip-provenance-check
-  
+
+
+
 
 ==================================
  The Community Earth System Model
@@ -38,6 +65,8 @@ http://escomp.github.io/cesm
 This repository provides tools for managing the external components that
 make up a CESM tag - alpha, beta and release. CESM tag creation should
 be coordinated through CSEG at NCAR.
+
+This repository is also connected to slack at http://cesm2.slack.com
 
 .. sectnum::
 
@@ -57,7 +86,7 @@ Installing, building and running CESM requires:
 
 * subversion client (we have tested with versions 1.6.11 and newer)
 
-* python2 version 2.7 or newer (cime supports python3, but some CESM components are not python3-compliant)
+* python3 version 3.6 or newer
 
 * perl version 5
 
@@ -65,7 +94,7 @@ Installing, building and running CESM requires:
 
 * Fortran and C compilers
 
-  * See `Details on Fortran compiler versions`_ below for more information 
+  * See `Details on Fortran compiler versions`_ below for more information
 
 * LAPACK and BLAS libraries
 
@@ -87,7 +116,7 @@ https://wiki.ucar.edu/display/ccsm/Fortran+Compiler+Bug+List for more
 details on older Fortran compiler versions).
 
 CESM2 is tested on several different systems with newer Fortran compilers:
-Please see `CESM2.0 Compiler/Machine Tests <https://docs.google.com/spreadsheets/d/15QUqsXD1Z0K_rYNTlykBvjTRt8s0XcQw0cfAj9DZbj0/edit#gid=0>`_
+Please see `CESM Compiler/Machine Tests <https://docs.google.com/spreadsheets/d/15QUqsXD1Z0K_rYNTlykBvjTRt8s0XcQw0cfAj9DZbj0/edit#gid=0>`_
 for a spreadsheet of the current results.
 
 More details on porting CESM
@@ -99,11 +128,11 @@ http://esmci.github.io/cime/users_guide/porting-cime.html
 Obtaining the full model code and associated scripting infrastructure
 =====================================================================
 
-CESM2.0 is now released via github. You will need some familiarity with git in order
+CESM is now released via github. You will need some familiarity with git in order
 to modify the code and commit these changes. However, to simply checkout and run the
 code, no git knowledge is required other than what is documented in the following steps.
 
-To obtain the CESM2.0 code you need to do the following:
+To obtain the CESM code you need to do the following:
 
 #. Clone the repository. ::
 
@@ -117,9 +146,9 @@ To obtain the CESM2.0 code you need to do the following:
       cd my_cesm_sandbox
       git tag
 
-#. Do a git checkout of the tag you want. If you want to checkout cesm2.0.beta07, you would issue the following. ::
+#. Do a git checkout of the tag you want. If you want to checkout release-cesm2.1.2, you would issue the following. ::
 
-      git checkout cesm2.0.beta07
+      git checkout release-cesm2.1.2
 
    (It is normal and expected to get a message about being in 'detached
    HEAD' state. For now you can ignore this, but it becomes important if
@@ -185,10 +214,10 @@ Switching to a different CESM tag
 
 If you have already checked out a tag and **HAVE NOT MADE ANY
 MODIFICATIONS** it is simple to change your sandbox. Say that you
-checked out cesm2.0.beta07 but really wanted to have cesm2.0.beta08;
+checked out release-cesm2.1.2 but really wanted to have release-cesm2.1.3;
 you would simply do the following::
 
-  git checkout cesm2.0.beta08
+  git checkout release-cesm2.1.3
   ./manage_externals/checkout_externals
 
 You should **not** use this method if you have made any source code
@@ -201,7 +230,7 @@ Pointing to a different version of a component
 
 Each entry in **Externals.cfg** has the following form (we use CAM as an
 example below)::
- 
+
   [cam]
   tag = trunk_tags/cam5_4_143/components/cam
   protocol = svn
