@@ -1,4 +1,106 @@
 ==================================
+ Quick Start FTORCH + Forpy + CESM
+==================================
+
+I don't know why but I had to purge my .bashrc to get forpy to work with CESM. Here is the totality of my new .bashrc ::
+
+ function ncar_pylib { . /glade/u/apps/opt/ncar_pylib/ncar_pylib; }
+ export PROJECT=P93300606
+ export PBS_ACCOUNT=$PROJECT
+ export EDITOR="emacs -nw"
+ export PATH=$PATH:$HOME/bin
+ if [[ "$NCAR_HOST" == derecho ]]; then
+   if [[ -z $PBS_JOBID ]]; then
+     module purge
+     module load cesmdev/1.0
+ #    module load ncarenv/23.06
+     module load ncarenv/23.09
+   fi
+   export CESMDATAROOT="${CESMDATAROOT:=/glade/campaign/cesm/cesmdata}"
+   if [ -f "/glade/u/apps/cseg/derecho/$NCAR_ENV_VERSION/spack/share/spack/setup-env.sh" ]; then
+       SPACK_SKIP_MODULES=1 source /glade/u/apps/cseg/derecho/$NCAR_ENV_VERSION/spack/share/spack/setup-env.sh
+   fi
+ fi
+ alias qstat='qstat -w'
+
+Then set up your conda environment and clone the github:
+
+::
+
+  module load conda
+  conda activate /glade/work/wchapman/miniconda3.2/envs/cesmML3.10gpuPD
+
+::
+
+  git clone https://github.com/WillyChap/CESM.git -b cesm2.1.5_FTORCH_FORPY NAME_YOUR_SANDBOX
+  cd NAME_YOUR_SANDBOX
+  
+  rm -r manage_externals
+  git clone -b manic-v1.1.8 https://github.com/ESMCI/manage_externals.git
+
+  ./manage_externals/checkout_externals
+  cd components/cam/
+  ../../manage_externals/checkout_externals -e Externals_CAM.cfg
+
+Now you are good to build! 
+
+::
+
+ ./create_newcase --case /path/to/case_name --mach derecho --compiler intel --compset FHIST --res f09_f09_mg17 --project XXXXXXXXXX
+ cd /path/to/case_name
+ ./xmlchange USE_CONDA=TRUE
+ export PYTHONPATH=`pwd`/SourceMods/src.cam/:$PYTHONPATH
+ ./case.setup
+ qcmd -q main -l walltime=00:25:00 -A NAML0001 -- ./case.build --skip-provenance-check
+
+If you are using Forpy
+======================
+
+Add your python/fortran scripts to your ./SourceMods/src.cam/ and you are on your way! 
+
+IF YOU WANT TO RUN ON THE GPU: 
+
+::
+ 
+ /create_newcase --case /path/to/case_name --mach derecho-gpu --compiler intel --compset FHIST --res f09_f09_mg17 --project XXXXXXXXXX
+
+Then add all the necessary linking in your python script: 
+
+::
+
+ def DAMLcnn_run(*args):
+    print('device available :', torch.cuda.is_available())
+    print('device count: ', torch.cuda.device_count())
+    print('current device: ',torch.cuda.current_device())
+    print('device name: ',torch.cuda.get_device_name())
+    gpu_id=0
+    
+ def set_gpu(gpu_id):
+   os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+   os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+        
+ if gpu_id >= 0:
+   device = "cuda"
+   set_gpu(gpu_id) 
+   print('device available :', torch.cuda.is_available())
+   print('device count: ', torch.cuda.device_count())
+   print('current device: ',torch.cuda.current_device())
+   print('device name: ',torch.cuda.get_device_name())
+   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+ else:
+   device = torch.device('cpu')
+
+If you are using FTORCH
+=======================
+
+
+
+
+
+
+
+
+==================================
  The Community Earth System Model
 ==================================
 
