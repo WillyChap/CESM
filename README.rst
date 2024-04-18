@@ -78,6 +78,37 @@ Now you are good to build!
 
 Add your python/fortran scripts to your ./SourceMods/src.cam/ and you are on your way! 
 
+IF YOU WANT TO RUN ON THE GPU: 
+
+::
+ 
+ /create_newcase --case /path/to/case_name --mach derecho-gpu --compiler intel --compset FHIST --res f09_f09_mg17 --project XXXXXXXXXX
+
+Then add all the necessary linking in your python script: 
+
+::
+
+ def DAMLcnn_run(*args):
+    print('device available :', torch.cuda.is_available())
+    print('device count: ', torch.cuda.device_count())
+    print('current device: ',torch.cuda.current_device())
+    print('device name: ',torch.cuda.get_device_name())
+    gpu_id=0
+    
+ def set_gpu(gpu_id):
+   os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+   os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+        
+ if gpu_id >= 0:
+   device = "cuda"
+   set_gpu(gpu_id) 
+   print('device available :', torch.cuda.is_available())
+   print('device count: ', torch.cuda.device_count())
+   print('current device: ',torch.cuda.current_device())
+   print('device name: ',torch.cuda.get_device_name())
+   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+ else:
+   device = torch.device('cpu')
 
 
 ==================================
