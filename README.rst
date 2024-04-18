@@ -3,7 +3,9 @@
 ==================================
 
 I don't know why but I had to purge my .bashrc to get forpy to work with CESM. Here is the totality of my new .bashrc
+
 ::
+
  function ncar_pylib { . /glade/u/apps/opt/ncar_pylib/ncar_pylib; }
  export PROJECT=P93300606
  export PBS_ACCOUNT=$PROJECT
@@ -28,25 +30,53 @@ Then set up your conda environment and clone the github:
 ::
 
   module load conda
-  conda activate /glade/work/wchapman/miniconda3.2/envs/cesmML3.8/
+  conda activate /glade/work/wchapman/miniconda3.2/envs/cesmML3.10gpuPD
 
+  git clone https://github.com/ESCOMP/cesm -b cesm2.1.5 NAME_YOUR_SANDBOX
 
-  git clone https://github.com/WillyChap/CESM.git CESM_forpy_0XXX
-  cd CESM_forpy_0XXX
-  git checkout forpy_cesm
-  rm -r manage_externals
-  git clone -b manic-v1.1.8 https://github.com/ESMCI/manage_externals.git
-  ./manage_externals/checkout_externals
-  cd  ./components/cam
-  ../../manage_externals/checkout_externals -e Externals_CAM.cfg
+Add this to the Externals.cfg
 
 ::
 
-  ./CESM_forpy_0XXX/cime/scripts/create_newcase --case /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp00XXX --mach derecho --compset FHIST --res f09_f09_mg17 --project XXXXXX
-  cd /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp0014
-  ./case.setup
-  qcmd -q main -l walltime=01:00:00 -A NAML0001 -- ./case.build --skip-provenance-check
+  [cam]
+  branch = forpy_cam_rel60
+  protocol = git
+  repo_url = https://github.com/WillyChap/CAM
+  local_path = components/cam
+  required = True
 
+  [forpy]
+  branch = master
+  protocol = git
+  repo_url = https://github.com/ylikx/forpy.git
+  local_path = forpy
+  required = True
+
+Next update the cime branch:
+
+::
+
+  ./manage_externals/checkout_externals
+  cd cime
+  git remote add jpedev https://github.com/jedwards4b/cime
+  git fetch jpedev
+  git checkout jpedev/forpy_cime
+  cd  ../components/cam
+  ../../manage_externals/checkout_externals -e Externals_CAM.cfg
+
+
+Now you are good to build! 
+
+::
+
+ /create_newcase --case /path/to/case_name --mach derecho --compiler intel --compset FHIST --res f09_f09_mg17 --project XXXXXXXXXX
+ cd /path/to/case_name
+ ./xmlchange USE_CONDA=TRUE
+ export PYTHONPATH=`pwd`/SourceMods/src.cam/:$PYTHONPATH
+ ./case.setup
+ qcmd -q main -l walltime=00:25:00 -A NAML0001 -- ./case.build --skip-provenance-check
+
+Add your python/fortran scripts to your ./SourceMods/src.cam/ and you are on your way! 
 
 
 
