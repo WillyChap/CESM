@@ -58,6 +58,15 @@ If you are using Forpy
 
 Add your python/fortran scripts to your ./SourceMods/src.cam/ and you are on your way! 
 
+See the example python script here:
+
+https://github.com/WillyChap/CAM/blob/forpy_ex_cam6_3_142/forpy_example.py
+
+And the example Fortran linking scripts here: 
+
+https://github.com/WillyChap/CAM/blob/forpy_ex_cam6_3_142/src/physics/cam/forpy_example.F90
+
+
 IF YOU WANT TO RUN ON THE GPU: 
 
 ::
@@ -90,10 +99,26 @@ Then add all the necessary linking in your python script:
  else:
    device = torch.device('cpu')
 
+An example forpy CNN run on the GPUs is here (both scripts must be used): 
+
+Python: https://github.com/WillyChap/CAM/blob/forpy_cam_rel60/DAMLcnn.py
+
+Fortran: https://github.com/WillyChap/CAM/blob/forpy_cam_rel60/src/physics/cam/DAMLcnn.F90
+
 If you are using FTORCH
 =======================
 
+See the Example script here:
 
+https://github.com/WillyChap/CAM/blob/ftorch_forpy_cam_rel60/src/physics/cam/DAMLmjoCNN.F90
+
+And see this for use on the GPU (remember to change your machine definition): 
+
+https://github.com/WillyChap/CAM/blob/ftorch_forpy_cam_rel60/src/physics/cam/DAMLcnn.F90
+
+::
+
+ /create_newcase --case /path/to/case_name --mach derecho-gpu --compiler intel --compset FHIST --res f09_f09_mg17 --project XXXXXXXXXX
 
 
 
