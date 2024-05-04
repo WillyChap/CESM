@@ -2,6 +2,15 @@
  Quick Start FTORCH + Forpy + CESM
 ==================================
 
+First, credit where credit is due: 
+==================================
+
+`FTORCH <https://github.com/Cambridge-ICCS/FTorch>`_ was developed at `ICCS <https://iccs.cam.ac.uk/>`_ and was linked to the NCAR system with help by Jack Atkinson!
+
+`FORPY is linked here! <https://github.com/ylikx/forpy>`_ and Jim Edwards was instrumental in getting it operating on the NCAR system. 
+
+
+
 I don't know why but I had to purge my .bashrc to get forpy to work with CESM. Here is the totality of my new .bashrc ::
 
  function ncar_pylib { . /glade/u/apps/opt/ncar_pylib/ncar_pylib; }
