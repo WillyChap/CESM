@@ -5,6 +5,10 @@
 First, credit where credit is due: 
 ==================================
 
+
+.. image:: https://zenodo.org/badge/742566902.svg
+  :target: https://zenodo.org/doi/10.5281/zenodo.11373728
+
 `FTORCH <https://github.com/Cambridge-ICCS/FTorch>`_ was developed at `ICCS <https://iccs.cam.ac.uk/>`_ and was linked to the NCAR system with help by Jack Atkinson!
 
 `FORPY is linked here! <https://github.com/ylikx/forpy>`_ and Jim Edwards was instrumental in getting it operating on the NCAR system. 
