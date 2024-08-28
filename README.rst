@@ -1,4 +1,56 @@
 ==================================
+      Quick Start Forpy + CESM:
+==================================
+
+I don't know why but I had to purge my .bashrc to get forpy to work with CESM. Here is the totality of my new .bashrc
+:: 
+ function ncar_pylib { . /glade/u/apps/opt/ncar_pylib/ncar_pylib; }
+ export PROJECT=P93300606
+ export PBS_ACCOUNT=$PROJECT
+ export EDITOR="emacs -nw"
+ export PATH=$PATH:$HOME/bin
+ if [[ "$NCAR_HOST" == derecho ]]; then
+   if [[ -z $PBS_JOBID ]]; then
+     module purge
+     module load cesmdev/1.0
+ #    module load ncarenv/23.06                                                                                                                                                                                                            
+     module load ncarenv/23.09
+   fi
+   export CESMDATAROOT="${CESMDATAROOT:=/glade/campaign/cesm/cesmdata}"
+   if [ -f "/glade/u/apps/cseg/derecho/$NCAR_ENV_VERSION/spack/share/spack/setup-env.sh" ]; then
+       SPACK_SKIP_MODULES=1 source /glade/u/apps/cseg/derecho/$NCAR_ENV_VERSION/spack/share/spack/setup-env.sh
+   fi
+ fi
+ alias qstat='qstat -w'
+
+Then set up your conda environment and clone the github: 
+
+::
+
+  module load conda 
+  conda activate /glade/work/wchapman/miniconda3.2/envs/cesmML3.8/
+
+
+  git clone https://github.com/WillyChap/CESM.git CESM_forpy_0XXX
+  cd CESM_forpy_0XXX
+  git checkout forpy_cesm
+  rm -r manage_externals
+  git clone -b manic-v1.1.8 https://github.com/ESMCI/manage_externals.git
+  ./manage_externals/checkout_externals
+  cd  ./components/cam
+  ../../manage_externals/checkout_externals -e Externals_CAM.cfg
+
+::
+
+  ./CESM_forpy_0XXX/cime/scripts/create_newcase --case /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp00XXX --mach derecho --compset FHIST --res f09_f09_mg17 --project XXXXXX
+  cd /glade/work/wchapman/cesm/sppt_skebs_stochai/f.e21.DAcompset.sppt_stochai_cnn_exp0014
+  ./case.setup
+  qcmd -q main -l walltime=01:00:00 -A NAML0001 -- ./case.build --skip-provenance-check
+
+
+
+
+==================================
  The Community Earth System Model
 ==================================
 
