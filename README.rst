@@ -1,3 +1,202 @@
+=====================================================
+ CESM 2.1.5 — CAMulator Coupled Configuration
+=====================================================
+
+This branch (``release-cesm2.1.5-camulator``) extends stock CESM 2.1.5 to support
+**CAMulator**: a machine-learning atmosphere that replaces CAM6 in a fully coupled
+ocean–ice–land simulation. Atmospheric state is predicted by a neural network
+(trained via `CREDIT <https://github.com/NCAR/miles-credit>`_) and coupled to the
+active ocean (POP2), sea ice (CICE5), and land (CLM5) components through a
+file-based protocol.
+
+.. contents::
+   :local:
+   :depth: 2
+
+What is different from stock CESM 2.1.5
+=========================================
+
+Two components are replaced:
+
++------------+----------------------------+------------------------------------------------------+
+| Component  | Stock CESM 2.1.5           | This branch                                          |
++============+============================+======================================================+
+| CIME       | ESMCI/cime @ maint-5.6     | Cambridge-ICCS/cime_je @ coupled_camulator           |
++------------+----------------------------+------------------------------------------------------+
+| CAM        | ESCOMP/CAM @ cam_rel60     | WillyChap/CAM @ coupled_camulator                    |
++------------+----------------------------+------------------------------------------------------+
+| All others | Stock CESM 2.1.5 tags      | Unchanged                                            |
++------------+----------------------------+------------------------------------------------------+
+
+Key additions in CIME:
+
+* ``datm_datamode_camulator.F90`` — file-based coupling protocol between CESM and the CAMulator Python server
+* ``CAMULATOR`` registered as a valid DATM datamode
+* FTorch build infrastructure (``USE_FTORCH`` flag)
+* Fix for SST=0 bug when using DATA atmosphere with an active ocean
+
+Requirements
+============
+
+System
+------
+
+* NCAR Derecho (tested) — other machines require porting ``config_machines.xml``
+* At least 1× A100 GPU for the CAMulator Python server
+
+Python environment (CAMulator server)
+--------------------------------------
+
+Install the CREDIT conda environment from the
+`CREDIT repository <https://github.com/NCAR/miles-credit>`_::
+
+    conda activate credit-coupling
+    pip install -e . --no-deps
+
+Pre-trained model checkpoint::
+
+    /glade/campaign/cisl/aiml/wchapman/MLWPS/STAGING/CAMulator_models/checkpoint.pt00091.pt
+
+Contact wchapman@ucar.edu for access or details.
+
+Installation
+============
+
+::
+
+    git clone -b release-cesm2.1.5-camulator \
+        https://github.com/WillyChap/CESM.git my_camulator_cesm
+    cd my_camulator_cesm
+    ./manage_externals/checkout_externals
+
+Creating and building a case
+=============================
+
+::
+
+    cd cime/scripts
+
+    ./create_newcase \
+        --case /glade/work/$USER/cesm/CREDIT/g.e21.CAMULATOR_GIAF_v01 \
+        --compset GIAF \
+        --res f09_g17 \
+        --mach derecho \
+        --project <YOUR_PROJECT>
+
+    cd /glade/work/$USER/cesm/CREDIT/g.e21.CAMULATOR_GIAF_v01
+
+    # Switch atmosphere to CAMulator data mode
+    ./xmlchange DATM_MODE=CAMULATOR
+
+    # Required MPI/GPU environment fixes on Derecho
+    ./xmlchange --file env_mach_specific.xml MPICH_GPU_SUPPORT_ENABLED=0
+    ./xmlchange --file env_mach_specific.xml FI_CXI_DISABLE_HOST_REGISTER=1
+    ./xmlchange --file env_mach_specific.xml MPICH_SMP_SINGLE_COPY_MODE=NONE
+
+    ./case.setup
+    ./case.build
+
+Running
+=======
+
+CAMulator requires **two processes running simultaneously**.
+
+1. Start the CAMulator Python server (GPU node)
+-------------------------------------------------
+
+On a Casper GPU node::
+
+    # qsub -I -A <PROJECT> -l select=1:ncpus=32:ngpus=1:mem=250GB \
+    #      -l walltime=12:00:00 -q casper -l gpu_type=a100_80gb
+
+    conda activate credit-coupling
+    cd /path/to/miles-credit/climate
+
+    python camulator_server.py \
+        --config ./camulator_config.yml \
+        --model_name checkpoint.pt00091.pt \
+        --rundir /glade/derecho/scratch/$USER/g.e21.CAMULATOR_GIAF_v01/run/ \
+        --save_atm_nc camulator_out \
+        --daily_mean
+
+The server waits for CESM to write ``camulator_go.flag``, runs one inference step,
+writes ``camulator_cam_out.nc``, then signals CESM via ``camulator_done.flag``.
+
+The server **must be running before CESM reaches its first coupling step**.
+
+2. Submit the CESM job
+-----------------------
+
+::
+
+    cd /glade/work/$USER/cesm/CREDIT/g.e21.CAMULATOR_GIAF_v01
+    ./case.submit
+
+Key configuration
+==================
+
+Edit ``climate/camulator_config.yml`` in the CREDIT repo before each run:
+
+.. code-block:: yaml
+
+    predict:
+      save_forecast: '/glade/derecho/scratch/<USER>/CREDIT/climate_output/'
+      init_cond_fast_climate: '/glade/campaign/cisl/aiml/wchapman/MLWPS/STAGING/init_times/init_condition_tensor_2000-01-01T00Z.pth'
+      start_datetime: '2000-01-01 00:00:00'
+      timesteps_fast_climate: 1460   # 6-hr steps = 1 year
+
+Output
+======
+
+* **Coupled CESM output**: standard history files (ocean, ice, land) in the run directory
+* **Atmospheric output**: ``<rundir>/camulator_out/YYYY/camulator.h1.<YYYY-MM-DD-SSSSS>.nc``
+* **Daily means**: ``<rundir>/camulator_out/camulator.h1d.<YYYY-MM-DD>.nc``
+
+.. note::
+   Move output from ``/scratch/`` to ``/campaign/`` storage — scratch has a 90-day purge policy.
+
+Restarting
+==========
+
+The server saves an atmosphere restart file after every step::
+
+    <rundir>/camulator_atm_restart.pth
+
+On restart, CESM resumes normally and the server automatically loads this file.
+To start a **fresh run** from the same case, delete this file before relaunching the server.
+Annual restart archives are saved to ``<rundir>/atm_restarts/``.
+
+Known limitations
+=================
+
+* Tested on NCAR Derecho/Casper only. Other machines require entries in
+  ``cime/config/cesm/machines/config_machines.xml`` and ``config_compilers.xml``.
+* The neural network predicts FSNS and FLNS; downwelling fluxes (FSDS, FLNSD) are
+  reconstructed from these. Direct prediction is planned for the next training cycle.
+* Performance: ~45 simulated years per wall-clock day (SYPD) on Derecho + 1× A100.
+
+Citation
+=========
+
+If you use this configuration please cite::
+
+    Chapman et al. (2025), CAMulator: A Machine Learning Emulator of CAM6
+    for Long-Running Coupled Climate Simulations [citation TBD]
+
+and the standard CESM 2.1.5 references.
+
+Contact
+=======
+
+Will Chapman — wchapman@ucar.edu — MILES Group, NSF NCAR
+
+----
+
+Stock CESM 2.1.5 documentation
+================================
+
+The remainder of this file is the original CESM README, retained for reference.
+
 ==================================
  The Community Earth System Model
 ==================================
@@ -15,8 +214,6 @@ make up a CESM tag - alpha, beta and release. CESM tag creation should
 be coordinated through CSEG at NCAR.
 
 .. sectnum::
-
-.. contents::
 
 Software requirements
 =====================
@@ -40,7 +237,7 @@ Installing, building and running CESM requires:
 
 * Fortran and C compilers
 
-  * See `Details on Fortran compiler versions`_ below for more information 
+  * See `Details on Fortran compiler versions`_ below for more information
 
 * LAPACK and BLAS libraries
 
@@ -86,21 +283,6 @@ To obtain the CESM2.0 code you need to do the following:
 
    This will create a directory ``my_cesm_sandbox/`` in your current working directory.
 
-#. Go into the newly created CESM repository and determine what version of CESM you want.
-   To see what cesm tags are available, simply issue the **git tag** command. ::
-
-      cd my_cesm_sandbox
-      git tag
-
-#. Do a git checkout of the tag you want. If you want to checkout cesm2.0.beta07, you would issue the following. ::
-
-      git checkout cesm2.0.beta07
-
-   (It is normal and expected to get a message about being in 'detached
-   HEAD' state. For now you can ignore this, but it becomes important if
-   you want to make changes to your Externals.cfg file and commit those
-   changes to a branch.)
-
 #. Run the script **manage_externals/checkout_externals**. ::
 
       ./manage_externals/checkout_externals
@@ -112,138 +294,3 @@ To obtain the CESM2.0 code you need to do the following:
 At this point you have a working version of CESM.
 
 To see full details of how to set up a case, compile and run, see the CIME documentation at http://esmci.github.io/cime/ .
-
-More details on checkout_externals
-----------------------------------
-
-The file **Externals.cfg** in your top-level CESM directory tells
-**checkout_externals** which tag/branch of each component should be
-brought in to generate your sandbox. (This file serves the same purpose
-as SVN_EXTERNAL_DIRECTORIES when CESM was in a subversion repository.)
-
-NOTE: Just like svn externals, checkout_externals will always attempt
-to make the working copy exactly match the externals description. For
-example, if you manually modify an external without updating Externals.cfg,
-(e.g. switch to a different tag), then rerunning checkout_externals
-will automatically restore the externals described in Externals.cfg. See
-below documentation `Customizing your CESM sandbox`_ for more details.
-
-**You need to rerun checkout_externals whenever Externals.cfg has
-changed** (unless you have already manually updated the relevant
-external(s) to have the correct branch/tag checked out). Common times
-when this is needed are:
-
-* After checking out a new CESM branch/tag
-
-* After merging some other CESM branch/tag into your currently
-  checked-out branch
-
-**checkout_externals** must be run from the root of the source
-tree. For example, if you cloned CESM with::
-
-  git clone https://github.com/escomp/cesm.git my_cesm_sandbox
-
-then you must run **checkout_externals** from
-``/path/to/my_cesm_sandbox``.
-
-To see more details of **checkout_externals**, issue ::
-
-  ./manage_externals/checkout_externals --help
-
-Customizing your CESM sandbox
-=============================
-
-There are several use cases to consider when you want to customize or modify your CESM sandbox.
-
-Switching to a different CESM tag
----------------------------------
-
-If you have already checked out a tag and **HAVE NOT MADE ANY
-MODIFICATIONS** it is simple to change your sandbox. Say that you
-checked out cesm2.0.beta07 but really wanted to have cesm2.0.beta08;
-you would simply do the following::
-
-  git checkout cesm2.0.beta08
-  ./manage_externals/checkout_externals
-
-You should **not** use this method if you have made any source code
-changes, or if you have any ongoing CESM cases that were created from
-this sandbox. In these cases, it is often easiest to do a second **git
-clone**.
-
-Pointing to a different version of a component
-----------------------------------------------
-
-Each entry in **Externals.cfg** has the following form (we use CAM as an
-example below)::
- 
-  [cam]
-  tag = trunk_tags/cam5_4_143/components/cam
-  protocol = svn
-  repo_url = https://svn-ccsm-models.cgd.ucar.edu/cam1
-  local_path = components/cam
-  required = True
-
-Each entry specifies either a tag or a branch. To point to a new tag:
-
-#. Modify the relevant entry/entries in **Externals.cfg** (e.g., changing
-   ``cam5_4_143`` to ``cam5_4_144`` above)
-
-#. Checkout the new component(s)::
-
-     ./manage_externals/checkout_externals
-
-Keep in mind that changing individual components from a tag may result
-in an invalid model (won't compile, won't run, not scientifically
-meaningful) and is unsupported.
-
-Committing your change to Externals.cfg
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-After making this change, it's a good idea to commit the change in your
-local CESM git repository. First create a CESM branch in your local
-repository, then commit it. (Unlike with subversion, branches are stored
-locally unless you explicitly push them up to github. Feel free to
-create whatever local branches you'd like.) For example::
-
-  git checkout -b my_cesm_branch
-  git add Externals.cfg
-  git commit -m "Update CAM to cam5_4_144"
-
-Modifying a component
----------------------
-
-If you'd like to modify a component via a branch and point to that
-branch in your CESM sandbox, use the following procedure (again, using
-CAM as an example):
-
-#. Create a CAM branch. Since CAM originates from a subversion
-   repository, you will first need to create a branch in that
-   repository. Let's assume you have created this branch and called it
-   **my_branch**.
-
-#. Update **Externals.cfg** to point to your branch. You can replace the
-   **tag** entry with a **branch** entry, as follows::
-
-     [cam]
-     branch = branches/my_branch/components/cam
-     protocol = svn
-     repo_url = https://svn-ccsm-models.cgd.ucar.edu/cam1
-     local_path = components/cam
-     required = True
-
-#. Checkout your branch::
-
-     ./manage_externals/checkout_externals
-
-It's a good idea to commit your **Externals.cfg** file changes. See the above
-documentation, `Committing your change to Externals.cfg`_.
-
-Developer setup
-===============
-
-Developers who have not already done so should follow the recommended
-`one-time <https://github.com/esmci/cime/wiki/CIME-Git-Workflow#configure-git-one-time>`_
-setup directions for git. Developers may also want to set up
-`ssh <https://help.github.com/articles/connecting-to-github-with-ssh/>`_
-keys and switch to using the ``git@github.com:ESCOMP/cesm.git`` form of the github URLs.
