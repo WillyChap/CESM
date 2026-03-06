@@ -72,29 +72,35 @@ Installation
 Creating and building a case
 =============================
 
-::
+The ``setup_CAMULATOR_GIAF_case.sh`` script in the CREDIT repo
+(``climate/setup_CAMULATOR_GIAF_case.sh``) handles everything: ``create_newcase``,
+all required ``xmlchange`` commands, PE layout, MPI GPU env vars, CICE namelist,
+and ``case.build``.
 
-    cd cime/scripts
+Edit the configuration block at the top of the script::
 
-    ./create_newcase \
-        --case /glade/work/$USER/cesm/CREDIT/g.e21.CAMULATOR_GIAF_v01 \
-        --compset GIAF \
-        --res f09_g17 \
-        --mach derecho \
-        --project <YOUR_PROJECT>
+    CESM_ROOT=/path/to/my_camulator_cesm   # this sandbox
+    CASE_DIR=/glade/work/$USER/cesm/CREDIT/g.e21.CAMULATOR_GIAF_v01
+    PROJECT=<YOUR_PROJECT>
 
-    cd /glade/work/$USER/cesm/CREDIT/g.e21.CAMULATOR_GIAF_v01
+Then run::
 
-    # Switch atmosphere to CAMulator data mode
-    ./xmlchange DATM_MODE=CAMULATOR
+    conda activate credit-coupling   # needed for libpython3 linkage
+    bash /path/to/miles-credit/climate/setup_CAMULATOR_GIAF_case.sh
 
-    # Required MPI/GPU environment fixes on Derecho
-    ./xmlchange --file env_mach_specific.xml MPICH_GPU_SUPPORT_ENABLED=0
-    ./xmlchange --file env_mach_specific.xml FI_CXI_DISABLE_HOST_REGISTER=1
-    ./xmlchange --file env_mach_specific.xml MPICH_SMP_SINGLE_COPY_MODE=NONE
+Options::
 
-    ./case.setup
-    ./case.build
+    bash setup_CAMULATOR_GIAF_case.sh           # full: create + setup + build
+    bash setup_CAMULATOR_GIAF_case.sh nobuild   # create + setup only
+    bash setup_CAMULATOR_GIAF_case.sh nocreate  # setup + build (case already exists)
+
+The script configures:
+
+* ``DATM_MODE=CAMULATOR`` — activates the ML atmosphere datamode
+* ``NCPL_BASE_PERIOD=day, ATM_NCPL=4`` — 6-hour coupling interval
+* ``NTASKS_ATM/CPL/ICE=128, NTASKS_OCN=128, ROOTPE_OCN=128`` — confirmed 45 SYPD PE layout
+* ``MPICH_GPU_SUPPORT_ENABLED=0`` and two other MPI env vars — required on Derecho
+* ``ndtd=2`` in ``user_nl_cice`` — prevents CICE CFL crashes from CAMulator wind stress
 
 Running
 =======
