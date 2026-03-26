@@ -9,6 +9,8 @@ ocean–ice–land simulation. Atmospheric state is predicted by a neural networ
 active ocean (POP2), sea ice (CICE5), and land (CLM5) components through a
 file-based protocol.
 
+hi, we are rewriting this
+
 .. contents::
    :local:
    :depth: 2
